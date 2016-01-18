@@ -13,12 +13,6 @@
 })(this, function (module) {
   'use strict';
 
-  var _typeof = typeof Symbol === "function" && _typeof(Symbol.iterator) === "symbol" ? function (obj) {
-    return typeof obj === 'undefined' ? 'undefined' : _typeof(obj);
-  } : function (obj) {
-    return obj && typeof Symbol === "function" && obj.constructor === Symbol ? "symbol" : typeof obj === 'undefined' ? 'undefined' : _typeof(obj);
-  };
-
   function _defineProperty(obj, key, value) {
     if (key in obj) {
       Object.defineProperty(obj, key, {
@@ -47,19 +41,6 @@
 
     return target;
   };
-
-  function _then(promise, transform) {
-    var cancel = promise.cancel;
-    var events = promise.events;
-    return _extends(promise.then(transform), {
-      cancel: cancel,
-      events: events
-    }, {
-      then: function then(transform) {
-        return _then(this, transform);
-      }
-    });
-  }
 
   function EventEmitter() {
     var listeners = {};
@@ -203,44 +184,37 @@
           var currentIndex = index = index + 1;
 
           if (element.done === false) {
-            var _ret = function () {
-              var promise = new Promise(function (resolve) {
-                if (activeTasksCpt < limit) {
-                  activeTasksCpt++;
-                  resolve();
-                } else {
-                  queue.push(resolve);
-                }
+            var promise = new Promise(function (resolve) {
+              if (activeTasksCpt < limit) {
+                activeTasksCpt++;
+                resolve();
+              } else {
+                queue.push(resolve);
+              }
+            });
+            promise = promise.then(function () {
+              var result = task(element.value);
+              events.emit('start', {
+                index: currentIndex,
+                promise: result
               });
-              promise = _then(promise, function () {
-                var result = task(element.value);
-                events.emit('start', {
-                  index: currentIndex,
-                  promise: result
-                });
-                return result;
-              }).then(function (res) {
-                events.emit('end', {
-                  index: currentIndex,
-                  promise: promise
-                });
-
-                var next = queue.shift() || function () {
-                  activeTasksCpt--;
-                };
-
-                next();
-                return res;
+              return result;
+            });
+            promise.then(function (res) {
+              events.emit('end', {
+                index: currentIndex
               });
-              return {
-                v: {
-                  value: promise,
-                  done: false
-                }
+
+              var next = queue.shift() || function () {
+                activeTasksCpt--;
               };
-            }();
 
-            if ((typeof _ret === 'undefined' ? 'undefined' : _typeof(_ret)) === "object") return _ret.v;
+              next();
+            });
+            return {
+              value: promise,
+              done: false
+            };
           } else {
             return {
               done: true

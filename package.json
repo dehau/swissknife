@@ -1,6 +1,6 @@
 {
   "name": "swissknife",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "tasks utility",
   "main": "swissknife.js",
   "scripts": {
@@ -25,7 +25,6 @@
   "homepage": "https://github.com/dehau/swissknife#readme",
   "devDependencies": {
     "babel-cli": "^6.4.0",
-    "babel-plugin-object-assign": "^1.2.1",
     "babel-plugin-transform-es2015-modules-umd": "^6.4.3",
     "babel-plugin-transform-object-assign": "^6.3.13",
     "babel-preset-es2015": "^6.3.13"
