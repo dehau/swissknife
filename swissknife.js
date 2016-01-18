@@ -1,6 +1,6 @@
 (function (global, factory) {
   if (typeof define === "function" && define.amd) {
-    define(["module"], factory);
+    define(['module'], factory);
   } else if (typeof exports !== "undefined") {
     factory(module);
   } else {
@@ -11,7 +11,13 @@
     global.swissknife = mod.exports;
   }
 })(this, function (module) {
-  "use strict";
+  'use strict';
+
+  var _typeof = typeof Symbol === "function" && _typeof(Symbol.iterator) === "symbol" ? function (obj) {
+    return typeof obj === 'undefined' ? 'undefined' : _typeof(obj);
+  } : function (obj) {
+    return obj && typeof Symbol === "function" && obj.constructor === Symbol ? "symbol" : typeof obj === 'undefined' ? 'undefined' : _typeof(obj);
+  };
 
   function _defineProperty(obj, key, value) {
     if (key in obj) {
@@ -41,6 +47,52 @@
 
     return target;
   };
+
+  function _then(promise, transform) {
+    var cancel = promise.cancel;
+    var events = promise.events;
+    return _extends(promise.then(transform), {
+      cancel: cancel,
+      events: events
+    }, {
+      then: function then(transform) {
+        return _then(this, transform);
+      }
+    });
+  }
+
+  function EventEmitter() {
+    var listeners = {};
+
+    this.on = function (event, cb) {
+      listeners[event] = (listeners[event] || []).concat([cb]);
+      return this;
+    };
+
+    this.off = function (event, cb) {
+      listeners[event] = (listeners[event] || []).filter(function (listener) {
+        return listener !== cb;
+      });
+      return this;
+    };
+
+    this.emit = function (event) {
+      for (var _len = arguments.length, data = Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
+        data[_key - 1] = arguments[_key];
+      }
+
+      if (listeners[event]) {
+        listeners[event].forEach(function (cb) {
+          return cb.apply(undefined, data);
+        });
+      }
+
+      return this;
+    };
+
+    this.addEventListener = this.on;
+    this.removeEventListener = this.off;
+  }
 
   function identity(arg) {
     return arg;
@@ -134,44 +186,61 @@
     },
     collection: {
       map: function map(collection, task) {
+        var _ref3;
+
         var _ref2 = arguments.length <= 2 || arguments[2] === undefined ? {} : arguments[2];
 
         var _ref2$limit = _ref2.limit;
         var limit = _ref2$limit === undefined ? 5 : _ref2$limit;
-        var _ref2$events = _ref2.events;
-        var events = _ref2$events === undefined ? function () {} : _ref2$events;
-        var memo = {};
+        var events = new EventEmitter();
         var iterator = collection[Symbol.iterator]();
         var activeTasksCpt = 0;
         var queue = [];
+        var index = 0;
 
         var enqueue = function enqueue() {
           var element = iterator.next();
+          var currentIndex = index = index + 1;
 
           if (element.done === false) {
-            var promise = new Promise(function (resolve) {
-              if (activeTasksCpt < limit) {
-                activeTasksCpt++;
-                resolve();
-              } else {
-                queue.push(resolve);
-              }
-            });
-            promise = promise.then(function () {
-              return task(element.value, events);
-            });
-            promise.then(function (res) {
-              var next = queue.shift() || function () {
-                activeTasksCpt--;
-              };
+            var _ret = function () {
+              var promise = new Promise(function (resolve) {
+                if (activeTasksCpt < limit) {
+                  activeTasksCpt++;
+                  resolve();
+                } else {
+                  queue.push(resolve);
+                }
+              });
+              promise = _then(promise, function () {
+                var result = task(element.value);
+                events.emit('start', {
+                  index: currentIndex,
+                  promise: result
+                });
+                return result;
+              }).then(function (res) {
+                events.emit('end', {
+                  index: currentIndex,
+                  promise: promise
+                });
 
-              next();
-              return res;
-            });
-            return {
-              value: promise,
-              done: false
-            };
+                var next = queue.shift() || function () {
+                  activeTasksCpt--;
+                };
+
+                next();
+                return res;
+              });
+              return {
+                v: {
+                  value: promise,
+                  done: false
+                }
+              };
+            }();
+
+            if ((typeof _ret === 'undefined' ? 'undefined' : _typeof(_ret)) === "object") return _ret.v;
           } else {
             return {
               done: true
@@ -179,11 +248,13 @@
           }
         };
 
-        return _defineProperty({}, Symbol.iterator, function () {
+        return _ref3 = {}, _defineProperty(_ref3, Symbol.iterator, function () {
           return {
             next: enqueue
           };
-        });
+        }), _defineProperty(_ref3, 'all', function all() {
+          return Promise.all(this);
+        }), _defineProperty(_ref3, 'events', events), _ref3;
       }
     }
   };
