@@ -1,0 +1,28 @@
+{
+  "name": "swissknife",
+  "description": "tasks utility",
+  "main": "swissknife.js",
+  "authors": [
+    "dehau"
+  ],
+  "license": "MIT",
+  "keywords": [
+    "swissknife",
+    "swiss",
+    "tasks",
+    "collection"
+  ],
+  "homepage": "https://github.com/dehau/swissknife",
+  "moduleType": [
+    "amd",
+    "globals",
+    "node"
+  ],
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}
