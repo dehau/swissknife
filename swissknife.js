@@ -101,6 +101,14 @@
     };
   }
 
+  function toIterator(collecton) {
+    if (Symbol && Symbol.iterator && collecton[Symbol.iterator]) {
+      return collecton[Symbol.iterator]();
+    } else if (collecton.next) {
+      return collecton;
+    }
+  }
+
   module.exports = {
     tasks: {
       middlewares: function middlewares(tasks) {
@@ -148,10 +156,16 @@
         } : _ref$isRetryable;
         var _ref$maxRetry = _ref.maxRetry;
         var maxRetry = _ref$maxRetry === undefined ? 5 : _ref$maxRetry;
+        var events = new EventEmitter();
 
         function tryTask() {
           var retryCpt = arguments.length <= 0 || arguments[0] === undefined ? 1 : arguments[0];
-          return task(ctx).catch(function (err) {
+          var result = task(ctx);
+          events.emit('try', {
+            promise: result,
+            retries: retryCpt
+          });
+          result.catch(function (err) {
             if (isRetryable(err) && retryCpt < maxRetry) {
               return wait(retryCpt ? delay(retryCpt) : 0)().then(function () {
                 return tryTask(retryCpt + 1);
@@ -160,21 +174,22 @@
               throw err;
             }
           });
+          return result;
         }
 
-        return tryTask();
+        return _extends(tryTask(), {
+          events: events
+        });
       }
     },
     collection: {
       map: function map(collection, task) {
-        var _ref3;
-
         var _ref2 = arguments.length <= 2 || arguments[2] === undefined ? {} : arguments[2];
 
         var _ref2$limit = _ref2.limit;
         var limit = _ref2$limit === undefined ? 5 : _ref2$limit;
         var events = new EventEmitter();
-        var iterator = collection[Symbol.iterator]();
+        var iterator = toIterator(collection);
         var activeTasksCpt = 0;
         var queue = [];
         var index = 0;
@@ -222,13 +237,23 @@
           }
         };
 
-        return _ref3 = {}, _defineProperty(_ref3, Symbol.iterator, function () {
-          return {
-            next: enqueue
+        var result = {
+          next: enqueue,
+          events: events,
+          all: function all() {
+            return Promise.all(this);
+          }
+        };
+
+        if (Symbol && Symbol.iterator) {
+          result[Symbol.iterator] = function () {
+            return {
+              next: enqueue
+            };
           };
-        }), _defineProperty(_ref3, 'all', function all() {
-          return Promise.all(this);
-        }), _defineProperty(_ref3, 'events', events), _ref3;
+        }
+
+        return result;
       }
     }
   };
